@@ -5,10 +5,64 @@ import json
 import tldextract
 import certifi
 import ssl
+from traversal_rule_identifier import TraversalRule
 
 ssl_context = ssl.SSLContext()
 ssl_context.load_verify_locations(certifi.where())
 http = urllib3.PoolManager(ssl_context=ssl_context)
+
+class OrgTraversalRules:
+    persistence_type = "json"
+
+    def __init__(self, filename):
+        self.filename = filename
+        self.org_traversal_rules = dict()
+        self.load_org_traversal_rules()
+
+    def load_org_traversal_rules(self):
+        with open(self.filename, "r") as fp:
+            self.org_traversal_rules =  json.load(fp)
+            #self.org_traversal_rules =  json.load(fp)
+            
+
+    def get_org_traversal_for_url(self, url):
+        extract_result = tldextract.extract(url)
+        host_url = extract_result.registered_domain
+        if host_url in self.org_traversal_rules:
+            return self.org_traversal_rules[host_url]
+        return None
+
+class FindOrgWithTraversal:
+
+    def __init__(self, url, org_traversal_rule_for_site):
+        self.url = url
+        self.org_traversal_rule = org_traversal_rule_for_site
+        self.page_content = None
+
+    def load_page_content(self):
+        self.page_content = http.request('GET', self.url).data
+        #print(self.page_content)
+
+    def get_org(self):
+        self.load_page_content()
+        soup = BeautifulSoup(self.page_content, 'lxml')
+        soup = BeautifulSoup(soup.prettify('utf-8'), 'lxml')
+        t = TraversalRule(soup, None, self.org_traversal_rule)
+        return t.get_org_from_traversal()
+
+
+class FindOrg:
+    domain_traversal_file = "./resources/domain_traversal_rules-500.json"
+    domain_traversal = OrgTraversalRules(domain_traversal_file)
+
+    def __init__(self, url):
+        self.url = url
+        extracted = tldextract.extract(url)
+        site = extracted.registered_domain
+        self.find_org = FindOrgWithTraversal(self.url, self.domain_traversal.org_traversal_rules[site])
+
+    def get_org(self):
+        return self.find_org.get_org()
 
 class AuthorTraversalRules:
     persistence_type = "json"
@@ -62,3 +116,4 @@ class FindAuthor:
 
 if __name__ == "__main__":
     print(FindAuthor("https://www.linkedin.com/pulse/automating-user-creation-aws-sftp-service-transfer-arjun-dandagi/").get_author())
+    print(FindOrg("https://www.facebook.com/TechRadar").get_org())

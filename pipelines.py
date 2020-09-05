@@ -13,7 +13,7 @@ import json
 import logging
 
 from traversal_rule_identifier import TraversalRule
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.DEBUG)
 AUTHOR_CANDIDATES_FILE_PREFIX = "author-candidates-"
 
 class ScraperPipeline(object):
@@ -33,7 +33,7 @@ class ScraperPipeline(object):
 
 
     def close_spider(self, spider):
-        # logging.debug("Closing Spider and dumping {}".format(self.results))
+        logging.debug("Closing Spider and dumping {}".format(self.results))
         json.dump(self.results, self.adf_file, cls=Format.MyEncoder)
         # json.dump(self.items, self.items_file, cls=Format.MyEncoder)
         logging.info("author candidates {}".format(self.author_candidates))
@@ -64,7 +64,21 @@ class ScraperPipeline(object):
                     tr.candidates = self.author_candidates[adf.url]
                     tr.pick_traversal_from_author()
                     if tr.traversal_rule:
-                        self.traversal[get_domain(adf.url)] = tr.traversal_rule
+                        if get_domain(adf.url) in self.traversal and self.traversal[get_domain(adf.url)]!=tr.traversal_rule
+                            self.traversal[get_domain(adf.url)] = tr.traversal_rule
+                            
+            if get_domain(adf.url) in self.traversal and self.author_candidates and self.url_references and adf.url in self.url_references and adf.url in self.author_candidates :
+                print("\ninside IN loop")
+                reference = self.url_references[adf.url]
+                if reference['author_name']:
+                    tr = TraversalRule(None, reference['author_name'], None)
+                    tr.candidates = self.author_candidates[adf.url]
+                    tr.pick_traversal_from_author()
+                    if tr.traversal_rule:
+                        if self.traversal[get_domain(adf.url)]!=tr.traversal_rule
+                            print("\ninside IN loop NE")
+
+
 
             logging.debug("Traversal rule {}".format(self.traversal))
 
